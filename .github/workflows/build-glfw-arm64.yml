@@ -19,9 +19,9 @@ jobs:
         run: |
           git clone --depth 1 --branch ${{ github.event.inputs.glfw_version }} https://github.com/glfw/glfw.git glfw-src
 
-      - name: Configure with CMake (cross-compile ARM64)
+      - name: Configure shared library (cross-compile ARM64)
         run: |
-          cmake -S glfw-src -B build `
+          cmake -S glfw-src -B build-shared `
             -A ARM64 `
             -DCMAKE_BUILD_TYPE=Release `
             -DBUILD_SHARED_LIBS=ON `
@@ -29,38 +29,12 @@ jobs:
             -DGLFW_BUILD_TESTS=OFF `
             -DGLFW_BUILD_DOCS=OFF
 
-      - name: Build
-        run: cmake --build build --config Release
+      - name: Build shared
+        run: cmake --build build-shared --config Release
 
-      - name: Prepare artifacts
+      - name: Configure static library (cross-compile ARM64)
         run: |
-          mkdir artifact
-          Copy-Item build\src\Release\glfw3.dll artifact\ -ErrorAction SilentlyContinue
-          Copy-Item build\src\Release\glfw3dll.lib artifact\ -ErrorAction SilentlyContinue
-          Copy-Item build\src\Release\glfw3.lib artifact\ -ErrorAction SilentlyContinue
-          Copy-Item build\src\Release\glfw3_mt.lib artifact\ -ErrorAction SilentlyContinue
-          Copy-Item -Recurse glfw-src\include artifact\include
-          Get-ChildItem -Recurse artifact\
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: glfw-${{ github.event.inputs.glfw_version }}-windows-arm64
-          path: artifact/
-
-  build-static:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Clone GLFW
-        run: |
-          git clone --depth 1 --branch ${{ github.event.inputs.glfw_version }} https://github.com/glfw/glfw.git glfw-src
-
-      - name: Configure static build with CMake (cross-compile ARM64)
-        run: |
-          cmake -S glfw-src -B build `
+          cmake -S glfw-src -B build-static `
             -A ARM64 `
             -DCMAKE_BUILD_TYPE=Release `
             -DBUILD_SHARED_LIBS=OFF `
@@ -69,17 +43,34 @@ jobs:
             -DGLFW_BUILD_DOCS=OFF
 
       - name: Build static
-        run: cmake --build build --config Release
+        run: cmake --build build-static --config Release
 
-      - name: Prepare artifacts
+      - name: Copy artifacts into repo
         run: |
-          mkdir artifact
-          Copy-Item build\src\Release\*.lib artifact\ -ErrorAction SilentlyContinue
-          Copy-Item -Recurse glfw-src\include artifact\include
-          Get-ChildItem -Recurse artifact\
+          # Clean previous build output
+          if (Test-Path lib) { Remove-Item -Recurse -Force lib }
+          if (Test-Path include\GLFW) { Remove-Item -Recurse -Force include\GLFW }
 
-      - name: Upload static artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: glfw-${{ github.event.inputs.glfw_version }}-windows-arm64-static
-          path: artifact/
+          mkdir lib
+          mkdir -p include
+
+          # Shared libs
+          Copy-Item build-shared\src\Release\glfw3.dll lib\ -ErrorAction SilentlyContinue
+          Copy-Item build-shared\src\Release\glfw3dll.lib lib\ -ErrorAction SilentlyContinue
+
+          # Static lib
+          Copy-Item build-static\src\Release\glfw3.lib lib\ -ErrorAction SilentlyContinue
+
+          # Headers
+          Copy-Item -Recurse glfw-src\include\GLFW include\GLFW
+
+          Get-ChildItem -Recurse lib\
+          Get-ChildItem -Recurse include\
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lib/ include/
+          git commit -m "Build GLFW ${{ github.event.inputs.glfw_version }} for Windows ARM64"
+          git push

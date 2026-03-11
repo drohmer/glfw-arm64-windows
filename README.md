@@ -1,16 +1,23 @@
 # GLFW Windows ARM64 Builder
 
-GitHub Actions workflow to compile GLFW natively on Windows ARM64.
+GitHub Actions workflow to cross-compile GLFW for Windows ARM64 from a standard x64 runner.
 
 ## Usage
 
-1. Go to **Actions** > **Build GLFW for Windows ARM64**
-2. Click **Run workflow**, choose the GLFW version (default: `3.4`)
-3. Once complete, download the artifacts from the workflow run
+1. Go to **Settings > Actions > General > Workflow permissions** and enable **Read and write permissions**
+2. Go to **Actions** > **Build GLFW for Windows ARM64**
+3. Click **Run workflow**, choose the GLFW version (default: `3.4`)
+4. Once complete, the built files are committed directly into the repo — just `git pull`
 
-## Artifacts
+## Output
 
-Two artifacts are produced:
-
-- **glfw-{version}-windows-arm64** — shared library (DLL + import lib + headers)
-- **glfw-{version}-windows-arm64-static** — static library (.lib + headers)
+```
+lib/
+  glfw3.dll        # shared library
+  glfw3dll.lib     # import library for the DLL
+  glfw3.lib        # static library
+include/
+  GLFW/
+    glfw3.h
+    glfw3native.h
+```
